@@ -118,6 +118,20 @@ export function factorSquare(n: number): { squareRoot: number; remainder: number
 
 // Simplify square root of a positive real number (e.g. 20 -> 2√5, 18 -> 3√2, 6.25 -> 5/2)
 export function simplifyRadical(radicand: number, lang: Language = 'en'): RadicalResult {
+  if (radicand === 0) {
+    return {
+      exactString: '0',
+      radicandRaw: 0,
+      radicandDisplay: '0',
+      outsideFactor: 0,
+      insideRadical: 1,
+      denominator: 1,
+      isInteger: true,
+      isFraction: false,
+      factorizationSteps: [lang === 'zh' ? '√0 = 0' : '√0 = 0'],
+      decimalValue: 0
+    };
+  }
   const decimalVal = Math.sqrt(radicand);
   const steps: string[] = [];
 
