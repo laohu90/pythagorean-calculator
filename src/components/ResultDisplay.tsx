@@ -9,6 +9,33 @@ interface Props {
   lang: Language;
 }
 
+
+// Safe clipboard copy helper for iOS and iframe contexts
+const copyToClipboard = async (text: string): Promise<boolean> => {
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (err) {
+    // Fallback to execCommand
+  }
+  try {
+    const el = document.createElement("textarea");
+    el.value = text;
+    el.setAttribute("readonly", "");
+    el.style.position = "absolute";
+    el.style.left = "-9999px";
+    document.body.appendChild(el);
+    el.select();
+    const successful = document.execCommand("copy");
+    document.body.removeChild(el);
+    return successful;
+  } catch {
+    return false;
+  }
+};
+
 export const ResultDisplay: React.FC<Props> = ({ data, precision, lang }) => {
   const [copiedResult, setCopiedResult] = useState(false);
   const [copiedSteps, setCopiedSteps] = useState(false);
@@ -21,14 +48,14 @@ export const ResultDisplay: React.FC<Props> = ({ data, precision, lang }) => {
   const unitSuffix = unit ? ` ${unit}` : '';
   const formattedDecimal = decimalValFormat(radical.decimalValue, precision);
 
-  const handleCopyResult = () => {
+  const handleCopyResult = async () => {
     const text = `${targetSymbol} = ${radical.exactString}${unitSuffix} (≈ ${formattedDecimal}${unitSuffix})`;
     await copyToClipboard(text);
     setCopiedResult(true);
     setTimeout(() => setCopiedResult(false), 2000);
   };
 
-  const handleCopyAllSteps = () => {
+  const handleCopyAllSteps = async () => {
     const text = [
       lang === 'zh' ? '【勾股定理计算步骤】' : '【Pythagorean Theorem Solution Steps】',
       `${lang === 'zh' ? '已知' : 'Given'}: ${
