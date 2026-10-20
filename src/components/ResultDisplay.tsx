@@ -23,7 +23,7 @@ export const ResultDisplay: React.FC<Props> = ({ data, precision, lang }) => {
 
   const handleCopyResult = () => {
     const text = `${targetSymbol} = ${radical.exactString}${unitSuffix} (≈ ${formattedDecimal}${unitSuffix})`;
-    navigator.clipboard.writeText(text);
+    await copyToClipboard(text);
     setCopiedResult(true);
     setTimeout(() => setCopiedResult(false), 2000);
   };
@@ -46,7 +46,7 @@ export const ResultDisplay: React.FC<Props> = ({ data, precision, lang }) => {
       .filter(Boolean)
       .join('\n');
 
-    navigator.clipboard.writeText(text);
+    await copyToClipboard(text);
     setCopiedSteps(true);
     setTimeout(() => setCopiedSteps(false), 2000);
   };
