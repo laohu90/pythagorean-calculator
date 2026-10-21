@@ -15,7 +15,7 @@ import { Calculator } from './components/Calculator';
 import { TriplesExplorer } from './components/TriplesExplorer';
 import { SpecialTriangles } from './components/SpecialTriangles';
 import { SeoContent } from './components/SeoContent';
-import { Language, translations } from './i18n/translations';
+import { Language, SupportedLang, translations, resolveInitialLanguage } from './i18n/translations';
 
 export default function App() {
   // Default to English as requested, but respect URL query param ?lang= for Googlebot
