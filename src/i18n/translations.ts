@@ -1,4 +1,4 @@
-export type Language = 'en' | 'zh';
+export type Language = 'en' | 'es' | 'fr' | 'pt' | 'zh';
 
 export interface TranslationDictionary {
   meta: {
