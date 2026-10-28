@@ -260,12 +260,20 @@ export const Calculator: React.FC<Props> = ({ lang, onCalculationChange, presetI
     lastAddedKeyRef.current = '';
   };
 
-  // Reset inputs
+  // Reset inputs and controls
   const handleReset = () => {
-    setVal1('3');
-    setVal2('4');
+    setVal1('');
+    setVal2('');
     setTarget('c');
-    lastAddedKeyRef.current = 'c:3:4:5:cm';
+    setUnit('cm');
+    setPrecision(4);
+    try {
+      localStorage.removeItem('pythagorean_unit');
+      localStorage.removeItem('pythagorean_precision');
+    } catch {
+      // ignore
+    }
+    lastAddedKeyRef.current = '';
   };
 
   return (
@@ -545,7 +553,18 @@ export const Calculator: React.FC<Props> = ({ lang, onCalculationChange, presetI
       )}
 
       {/* Calculation Output Section */}
-      {calculation.error ? (
+      {!val1.trim() || !val2.trim() ? (
+        <div className="p-8 rounded-2xl bg-slate-50 border border-slate-200 text-center text-slate-500 text-sm">
+          <p className="font-semibold text-slate-700 mb-1">
+            {lang === 'zh' ? '请输入边长数值开始计算' : 'Enter side lengths above to calculate'}
+          </p>
+          <p className="text-xs text-slate-400">
+            {lang === 'zh'
+              ? '支持任意正数与小数输入，自动输出最简二次根式与逐步解题过程。'
+              : 'Supports any positive decimals. Automatically outputs simplest radical form and step-by-step solution.'}
+          </p>
+        </div>
+      ) : calculation.error ? (
         <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-sm flex items-start gap-3">
           <HelpCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div>

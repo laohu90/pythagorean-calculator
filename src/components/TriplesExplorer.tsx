@@ -23,14 +23,9 @@ export const TriplesExplorer: React.FC<Props> = ({ lang, onSelectTriple }) => {
   // Euclid Generator inputs
   const [genM, setGenM] = useState('3');
   const [genN, setGenN] = useState('2');
-  const [generatedTriple, setGeneratedTriple] = useState<PythagoreanTriple | null>({
-    a: 5,
-    b: 12,
-    c: 13,
-    isPrimitive: true,
-    m: 3,
-    n: 2
-  });
+  const [generatorResult, setGeneratorResult] = useState<ReturnType<typeof generateEuclidTriple>>(() =>
+    generateEuclidTriple(3, 2, lang)
+  );
 
   // Filter triples table
   const filteredTriples = COMMON_TRIPLES.filter((item) => {
@@ -50,20 +45,18 @@ export const TriplesExplorer: React.FC<Props> = ({ lang, onSelectTriple }) => {
 
   // Handle validate
   const handleValidate = () => {
-    const na = parseInt(valA, 10);
-    const nb = parseInt(valB, 10);
-    const nc = parseInt(valC, 10);
+    const na = Number(valA);
+    const nb = Number(valB);
+    const nc = Number(valC);
     setValidationResult(validateTriple(na, nb, nc, lang));
   };
 
   // Handle Euclid generator
   const handleGenerate = () => {
-    const m = parseInt(genM, 10);
-    const n = parseInt(genN, 10);
+    const m = Number(genM);
+    const n = Number(genN);
     const res = generateEuclidTriple(m, n, lang);
-    if (res.triple) {
-      setGeneratedTriple(res.triple);
-    }
+    setGeneratorResult(res);
   };
 
   return (
@@ -202,17 +195,43 @@ export const TriplesExplorer: React.FC<Props> = ({ lang, onSelectTriple }) => {
             {t.generateBtn}
           </button>
 
-          {generatedTriple && (
+          {generatorResult.error && (
+            <div className="mt-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-xs leading-relaxed">
+              <div className="flex items-center gap-2 font-bold mb-1">
+                <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{lang === 'zh' ? '参数校验未通过' : 'Invalid Parameters'}</span>
+              </div>
+              <p>{generatorResult.error}</p>
+            </div>
+          )}
+
+          {generatorResult.triple && generatorResult.diff !== undefined && generatorResult.prod !== undefined && (
             <div className="mt-4 p-3.5 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-900 text-xs">
-              <span className="font-bold text-indigo-800 block mb-1">
-                {t.generatedTitle(generatedTriple.a, generatedTriple.b, generatedTriple.c)}
-              </span>
-              <div className="font-mono text-[11px] text-indigo-700 space-y-0.5">
-                <div>a = {genM}² - {genN}² = {generatedTriple.a}</div>
-                <div>b = 2 × {genM} × {genN} = {generatedTriple.b}</div>
-                <div>c = {genM}² + {genN}² = {generatedTriple.c}</div>
-                <div className="pt-1 font-sans text-indigo-600">
-                  {generatedTriple.isPrimitive ? t.isPrimitiveText : t.isDerivedText}
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-bold text-indigo-800">
+                  {t.generatedTitle(generatorResult.triple.a, generatorResult.triple.b, generatorResult.triple.c)}
+                </span>
+                {onSelectTriple && (
+                  <button
+                    onClick={() => onSelectTriple(generatorResult.triple!.a, generatorResult.triple!.b)}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer"
+                  >
+                    {t.applyBtn}
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+              <div className="font-mono text-[11px] text-indigo-700 space-y-1">
+                <div>m² - n² = {genM}² - {genN}² = {generatorResult.diff}</div>
+                <div>2mn = 2 × {genM} × {genN} = {generatorResult.prod}</div>
+                <div>c = m² + n² = {genM}² + {genN}² = {generatorResult.hyp}</div>
+                <div className="pt-1 border-t border-indigo-200/60 font-sans text-indigo-800 font-medium">
+                  {lang === 'zh'
+                    ? `勾股数三元组 (a, b, c) = (${generatorResult.triple.a}, ${generatorResult.triple.b}, ${generatorResult.triple.c})`
+                    : `Pythagorean Triple (a, b, c) = (${generatorResult.triple.a}, ${generatorResult.triple.b}, ${generatorResult.triple.c})`}
+                </div>
+                <div className="font-sans text-indigo-600">
+                  {generatorResult.triple.isPrimitive ? t.isPrimitiveText : t.isDerivedText}
                 </div>
               </div>
             </div>

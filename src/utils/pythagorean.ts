@@ -63,26 +63,61 @@ export function gcd(x: number, y: number): number {
   return a || 1;
 }
 
+// Convert number to plain decimal string, preventing scientific notation leak e.g. 1e-8 -> 0.00000001
+export function toPlainDecimal(val: number): string {
+  if (!Number.isFinite(val)) return '0';
+  // Normalize IEEE-754 precision noise e.g. 0.000004999999999999999 -> 0.000005
+  const cleanVal = Number(val.toPrecision(12));
+  const str = cleanVal.toString();
+  if (!str.includes('e') && !str.includes('E')) return str;
+  const [base, expStr] = str.toLowerCase().split('e');
+  const exp = parseInt(expStr, 10);
+  if (exp < 0) {
+    const parts = base.split('.');
+    const intPart = parts[0].replace('-', '');
+    const fracPart = parts[1] || '';
+    const isNeg = base.startsWith('-');
+    const zeros = '0'.repeat(Math.abs(exp) - 1);
+    return `${isNeg ? '-' : ''}0.${zeros}${intPart}${fracPart}`;
+  } else {
+    const parts = base.split('.');
+    const intPart = parts[0];
+    const fracPart = parts[1] || '';
+    if (exp >= fracPart.length) {
+      return intPart + fracPart + '0'.repeat(exp - fracPart.length);
+    } else {
+      return `${intPart}${fractionalPartSlice(fracPart, exp)}`;
+    }
+  }
+}
+
+function fractionalPartSlice(frac: string, exp: number): string {
+  return `${frac.slice(0, exp)}.${frac.slice(exp)}`;
+}
+
 // Convert a decimal number to an exact fraction { num, den }
-export function toFraction(val: number, maxDenominator = 1000000): { num: number; den: number } {
+export function toFraction(val: number, maxDenominator = 1000000000000): { num: number; den: number } {
+  if (val === 0) return { num: 0, den: 1 };
   if (Number.isInteger(val)) {
     return { num: val, den: 1 };
   }
-  const str = val.toString();
-  if (str.includes('.')) {
-    const decimals = str.split('.')[1].length;
-    if (decimals <= 6) {
-      const den = Math.pow(10, decimals);
+  const plainStr = toPlainDecimal(val);
+  if (plainStr.includes('.')) {
+    const decimals = plainStr.split('.')[1].length;
+    if (decimals <= 10) {
+      const den = Math.round(Math.pow(10, decimals));
       const num = Math.round(val * den);
-      const div = gcd(num, den);
-      return { num: num / div, den: den / div };
+      if (den <= maxDenominator && num > 0) {
+        const div = gcd(num, den);
+        return { num: Math.round(num / div), den: Math.round(den / div) };
+      }
     }
   }
 
   // Continued fraction approximation for floats
   let p0 = 0, q0 = 1, p1 = 1, q1 = 0;
   let n = val;
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 30; i++) {
     const a = Math.floor(n);
     const p2 = a * p1 + p0;
     const q2 = a * q1 + q0;
@@ -90,18 +125,28 @@ export function toFraction(val: number, maxDenominator = 1000000): { num: number
     p0 = p1; q0 = q1;
     p1 = p2; q1 = q2;
     const diff = n - a;
-    if (Math.abs(diff) < 1e-9) break;
+    if (Math.abs(diff) < 1e-12) break;
     n = 1 / diff;
   }
+  if (q1 === 0) return { num: Math.round(val), den: 1 };
   return { num: p1, den: q1 };
 }
 
 // Factorize integer into max square factor k^2 and square-free remainder m
 export function factorSquare(n: number): { squareRoot: number; remainder: number; squareFactor: number } {
   let num = Math.round(Math.abs(n));
+  if (num <= 1) return { squareRoot: num, remainder: 1, squareFactor: num };
+
   let squareRoot = 1;
 
-  for (let i = 2; i * i <= num; i++) {
+  // Factor 2
+  while (num % 4 === 0) {
+    squareRoot *= 2;
+    num /= 4;
+  }
+
+  // Factor odd integers
+  for (let i = 3; i * i <= num; i += 2) {
     const i2 = i * i;
     while (num % i2 === 0) {
       squareRoot *= i;
@@ -435,13 +480,63 @@ export function solvePythagorean(
 }
 
 export function roundDisplay(n: number, decimals = 4): string {
+  if (n === 0) return '0';
   if (Number.isInteger(n)) return n.toString();
-  return Number(n.toFixed(decimals)).toString();
+
+  const absN = Math.abs(n);
+  // If the number is smaller than 10^(-decimals), rounding to `decimals` would turn it into "0".
+  // Prevent false "0" display and prevent scientific notation leak like 1e-8:
+  if (absN < Math.pow(10, -decimals)) {
+    const plain = toPlainDecimal(n);
+    if (plain.includes('.')) {
+      const parts = plain.split('.');
+      const frac = parts[1].replace(/0+$/, '');
+      if (!frac) return parts[0];
+      return `${parts[0]}.${frac.slice(0, 10)}`;
+    }
+    return plain;
+  }
+
+  const fixed = Number(n.toFixed(decimals)).toString();
+  if (fixed === '0' && n !== 0) {
+    const plain = toPlainDecimal(n);
+    if (plain.includes('.')) {
+      const parts = plain.split('.');
+      const frac = parts[1].replace(/0+$/, '');
+      return frac ? `${parts[0]}.${frac.slice(0, 10)}` : parts[0];
+    }
+    return plain;
+  }
+  return fixed;
 }
 
 export function decimalValFormat(n: number, precision = 4): string {
+  if (n === 0) return '0';
   if (Number.isInteger(n)) return n.toString();
-  return Number(n.toFixed(precision)).toString();
+
+  const absN = Math.abs(n);
+  if (absN < Math.pow(10, -precision)) {
+    const plain = toPlainDecimal(n);
+    if (plain.includes('.')) {
+      const parts = plain.split('.');
+      const frac = parts[1].replace(/0+$/, '');
+      if (!frac) return parts[0];
+      return `${parts[0]}.${frac.slice(0, 10)}`;
+    }
+    return plain;
+  }
+
+  const fixed = Number(n.toFixed(precision)).toString();
+  if (fixed === '0' && n !== 0) {
+    const plain = toPlainDecimal(n);
+    if (plain.includes('.')) {
+      const parts = plain.split('.');
+      const frac = parts[1].replace(/0+$/, '');
+      return frac ? `${parts[0]}.${frac.slice(0, 10)}` : parts[0];
+    }
+    return plain;
+  }
+  return fixed;
 }
 
 // Pythagorean Triples Database & Utilities
@@ -486,32 +581,57 @@ export function generateEuclidTriple(
   m: number,
   n: number,
   lang: Language = 'en'
-): { triple?: PythagoreanTriple; error?: string } {
-  if (m <= n) {
+): {
+  triple?: PythagoreanTriple;
+  error?: string;
+  diff?: number;
+  prod?: number;
+  hyp?: number;
+} {
+  if (isNaN(m) || isNaN(n)) {
     return {
       error:
         lang === 'zh'
-          ? '参数 m 必须大于参数 n。'
-          : 'Parameter m must be strictly greater than parameter n.'
+          ? '请输入有效的参数数值。'
+          : 'Please enter valid numerical parameters.'
+    };
+  }
+  if (!Number.isInteger(m) || !Number.isInteger(n)) {
+    return {
+      error:
+        lang === 'zh'
+          ? '参数 m 和 n 必须全部为正整数（不能为小数）。'
+          : 'Parameters m and n must both be positive integers (no decimals).'
     };
   }
   if (m <= 0 || n <= 0) {
     return {
       error:
         lang === 'zh'
-          ? '参数 m 和 n 必须为正整数。'
-          : 'Parameters m and n must be positive integers.'
+          ? '参数 m 和 n 必须严格大于 0（正整数）。'
+          : 'Parameters m and n must be strictly positive integers (> 0).'
     };
   }
-  const a = m * m - n * n;
-  const b = 2 * m * n;
+  if (m <= n) {
+    return {
+      error:
+        lang === 'zh'
+          ? `参数 m (${m}) 必须严格大于参数 n (${n})。`
+          : `Parameter m (${m}) must be strictly greater than parameter n (${n}).`
+    };
+  }
+  const diff = m * m - n * n;
+  const prod = 2 * m * n;
   const c = m * m + n * n;
-  const isPrimitive = gcd(gcd(a, b), c) === 1;
+  const isPrimitive = gcd(gcd(diff, prod), c) === 1;
 
   return {
+    diff,
+    prod,
+    hyp: c,
     triple: {
-      a: Math.min(a, b),
-      b: Math.max(a, b),
+      a: Math.min(diff, prod),
+      b: Math.max(diff, prod),
       c,
       isPrimitive,
       m,
@@ -532,15 +652,20 @@ export function validateTriple(
   sorted: [number, number, number];
   message: string;
 } {
-  if (x <= 0 || y <= 0 || z <= 0 || !Number.isInteger(x) || !Number.isInteger(y) || !Number.isInteger(z)) {
+  if (
+    isNaN(x) || isNaN(y) || isNaN(z) ||
+    !Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z) ||
+    x <= 0 || y <= 0 || z <= 0 ||
+    !Number.isInteger(x) || !Number.isInteger(y) || !Number.isInteger(z)
+  ) {
     return {
       isValid: false,
       isPrimitive: false,
       sorted: [x, y, z],
       message:
         lang === 'zh'
-          ? '勾股数必须全部为正整数。'
-          : 'Pythagorean triple elements must all be positive integers.'
+          ? '勾股数必须全部为正整数（不能包含小数、负数或零）。'
+          : 'Pythagorean triple elements must all be positive integers (no decimals, negatives, or zero).'
     };
   }
   const arr = [x, y, z].sort((a, b) => a - b) as [number, number, number];
