@@ -25,12 +25,43 @@ export const Calculator: React.FC<Props> = ({ lang, onCalculationChange, presetI
   const [target, setTarget] = useState<'c' | 'a' | 'b'>('c');
   const [val1, setVal1] = useState<string>('3');
   const [val2, setVal2] = useState<string>('4');
-  const [unit, setUnit] = useState<string>('cm');
-  const [precision, setPrecision] = useState<number>(4);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [unit, setUnit] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('pythagorean_unit');
+      if (saved !== null) return saved;
+    } catch {
+      // ignore
+    }
+    return 'cm';
+  });
+  const [precision, setPrecision] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('pythagorean_precision');
+      if (saved) {
+        const p = parseInt(saved, 10);
+        if ([2, 4, 6, 8].includes(p)) return p;
+      }
+    } catch {
+      // ignore
+    }
+    return 4;
+  });
+  const [history, setHistory] = useState<HistoryItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('pythagorean_history');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
 
   const t = translations[lang].calc;
+  const lastAddedKeyRef = React.useRef<string>('c:3:4:5:cm');
 
   // React to external preset injections (e.g. from Triples table or Special Triangles)
   useEffect(() => {
@@ -38,6 +69,7 @@ export const Calculator: React.FC<Props> = ({ lang, onCalculationChange, presetI
       setTarget(presetInjection.target);
       setVal1(presetInjection.val1.toString());
       setVal2(presetInjection.val2.toString());
+      lastAddedKeyRef.current = '';
     }
   }, [presetInjection]);
 
@@ -85,23 +117,147 @@ export const Calculator: React.FC<Props> = ({ lang, onCalculationChange, presetI
     }
   }, [calculation.result]);
 
-  // Load history from localStorage
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem('pythagorean_history');
-      if (saved) {
-        setHistory(JSON.parse(saved));
+  // Add calculation to history with persistence
+  const addToHistory = (result: SolveResult) => {
+    const { target: resTarget, a, b, c, unit: resUnit, radical } = result;
+    const unitStr = resUnit ? ` ${resUnit}` : '';
+    let resultStr = '';
+    let v1 = 0;
+    let v2 = 0;
+
+    if (resTarget === 'c') {
+      v1 = a;
+      v2 = b;
+      resultStr = `a = ${a}, b = ${b} → c = ${radical.exactString}${unitStr}`;
+    } else if (resTarget === 'a') {
+      v1 = c;
+      v2 = b;
+      resultStr = `c = ${c}, b = ${b} → a = ${radical.exactString}${unitStr}`;
+    } else {
+      v1 = c;
+      v2 = a;
+      resultStr = `c = ${c}, a = ${a} → b = ${radical.exactString}${unitStr}`;
+    }
+
+    const now = new Date();
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+
+    setHistory((prev) => {
+      // Prevent consecutive duplicate calculation
+      if (prev.length > 0) {
+        const first = prev[0];
+        if (
+          first.target === resTarget &&
+          first.val1 === v1 &&
+          first.val2 === v2 &&
+          first.unit === (resUnit || '')
+        ) {
+          return prev;
+        }
       }
+
+      const newItem: HistoryItem = {
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        time: timeStr,
+        target: resTarget,
+        val1: v1,
+        val2: v2,
+        unit: resUnit || '',
+        resultStr
+      };
+
+      const filtered = prev.filter(
+        (item) =>
+          !(
+            item.target === resTarget &&
+            item.val1 === v1 &&
+            item.val2 === v2 &&
+            item.unit === (resUnit || '')
+          )
+      );
+      const updated = [newItem, ...filtered].slice(0, 10);
+      try {
+        localStorage.setItem('pythagorean_history', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  };
+
+  // Automatically record calculations to history after user finishes typing
+  useEffect(() => {
+    if (!calculation.result) return;
+    const res = calculation.result;
+    const currentKey = `${res.target}:${res.a}:${res.b}:${res.c}:${res.unit}`;
+
+    if (lastAddedKeyRef.current === currentKey) return;
+
+    const timer = setTimeout(() => {
+      lastAddedKeyRef.current = currentKey;
+      addToHistory(res);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [calculation.result, unit]);
+
+  const handleInputBlur = () => {
+    if (calculation.result) {
+      const res = calculation.result;
+      const currentKey = `${res.target}:${res.a}:${res.b}:${res.c}:${res.unit}`;
+      if (lastAddedKeyRef.current !== currentKey) {
+        lastAddedKeyRef.current = currentKey;
+        addToHistory(res);
+      }
+    }
+  };
+
+  const handleUnitChange = (newUnit: string) => {
+    setUnit(newUnit);
+    try {
+      localStorage.setItem('pythagorean_unit', newUnit);
     } catch {
       // ignore
     }
-  }, []);
+  };
+
+  const handlePrecisionChange = (newPrecision: number) => {
+    setPrecision(newPrecision);
+    try {
+      localStorage.setItem('pythagorean_precision', newPrecision.toString());
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleClearHistory = () => {
+    setHistory([]);
+    try {
+      localStorage.removeItem('pythagorean_history');
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleRemoveHistoryItem = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setHistory((prev) => {
+      const updated = prev.filter((item) => item.id !== id);
+      try {
+        localStorage.setItem('pythagorean_history', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  };
 
   // Quick preset loader
   const applyPreset = (newTarget: 'c' | 'a' | 'b', v1: number, v2: number) => {
     setTarget(newTarget);
     setVal1(v1.toString());
     setVal2(v2.toString());
+    lastAddedKeyRef.current = '';
   };
 
   // Reset inputs
@@ -109,6 +265,7 @@ export const Calculator: React.FC<Props> = ({ lang, onCalculationChange, presetI
     setVal1('3');
     setVal2('4');
     setTarget('c');
+    lastAddedKeyRef.current = 'c:3:4:5:cm';
   };
 
   return (
@@ -206,6 +363,7 @@ export const Calculator: React.FC<Props> = ({ lang, onCalculationChange, presetI
               min="0.0001"
               value={val1}
               onChange={(e) => setVal1(e.target.value)}
+              onBlur={handleInputBlur}
               placeholder={t.inputPlaceholder}
               className="w-full bg-white px-4 py-3 text-lg font-mono font-bold text-slate-900 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-2xs"
             />
@@ -232,6 +390,7 @@ export const Calculator: React.FC<Props> = ({ lang, onCalculationChange, presetI
               min="0.0001"
               value={val2}
               onChange={(e) => setVal2(e.target.value)}
+              onBlur={handleInputBlur}
               placeholder={t.inputPlaceholder}
               className="w-full bg-white px-4 py-3 text-lg font-mono font-bold text-slate-900 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-2xs"
             />
@@ -255,7 +414,7 @@ export const Calculator: React.FC<Props> = ({ lang, onCalculationChange, presetI
             <span className="font-semibold text-slate-600">{t.unitLabel}</span>
             <select
               value={unit}
-              onChange={(e) => setUnit(e.target.value)}
+              onChange={(e) => handleUnitChange(e.target.value)}
               aria-label={t.unitLabel}
               className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-2xs"
             >
@@ -273,7 +432,7 @@ export const Calculator: React.FC<Props> = ({ lang, onCalculationChange, presetI
             <span className="font-semibold text-slate-600">{t.precisionLabel}</span>
             <select
               value={precision}
-              onChange={(e) => setPrecision(parseInt(e.target.value, 10))}
+              onChange={(e) => handlePrecisionChange(parseInt(e.target.value, 10))}
               aria-label={t.precisionLabel}
               className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer shadow-2xs"
             >
@@ -337,10 +496,7 @@ export const Calculator: React.FC<Props> = ({ lang, onCalculationChange, presetI
             </h4>
             {history.length > 0 && (
               <button
-                onClick={() => {
-                  setHistory([]);
-                  localStorage.removeItem('pythagorean_history');
-                }}
+                onClick={handleClearHistory}
                 className="text-xs text-rose-600 hover:text-rose-700 flex items-center gap-1 cursor-pointer"
               >
                 <Trash2 className="w-3 h-3" />
@@ -360,17 +516,27 @@ export const Calculator: React.FC<Props> = ({ lang, onCalculationChange, presetI
                     setTarget(h.target);
                     setVal1(h.val1.toString());
                     setVal2(h.val2.toString());
-                    if (h.unit) setUnit(h.unit);
+                    if (h.unit) handleUnitChange(h.unit);
                   }}
                   className="p-2.5 rounded-xl bg-white border border-slate-200 hover:border-blue-400 flex items-center justify-between cursor-pointer transition-all shadow-2xs group"
                 >
-                  <div>
+                  <div className="min-w-0 pr-2">
                     <span className="text-[11px] text-slate-400 block">{h.time}</span>
-                    <span className="text-xs font-mono font-bold text-slate-800 group-hover:text-blue-600">
+                    <span className="text-xs font-mono font-bold text-slate-800 group-hover:text-blue-600 truncate block">
                       {h.resultStr}
                     </span>
                   </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => handleRemoveHistoryItem(h.id, e)}
+                      title="Delete"
+                      className="p-1 rounded-md text-slate-300 hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                    <ArrowRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+                  </div>
                 </div>
               ))}
             </div>

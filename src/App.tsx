@@ -335,77 +335,75 @@ export default function App() {
         </section>
 
         {/* Tab View or Dynamic Sections */}
-        {activeTab === 'calc' && (
-          <div className="space-y-10">
-            {/* Main Interactive Calculator */}
-            <section id="calculator">
-              <Calculator
-                lang={lang}
-                presetInjection={presetInjection}
-              />
-            </section>
+        <div className={activeTab === 'calc' ? 'space-y-10' : 'hidden'}>
+          {/* Main Interactive Calculator */}
+          <section id="calculator">
+            <Calculator
+              lang={lang}
+              presetInjection={presetInjection}
+            />
+          </section>
 
-            {/* Quick Link Cards to other modules */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <button
-                onClick={() => {
-                  setActiveTab('triples');
-                  window.scrollTo({ top: 200, behavior: 'smooth' });
-                }}
-                className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-400 hover:shadow-sm text-left transition-all cursor-pointer group"
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-bold text-slate-800 text-sm group-hover:text-blue-600">
-                    {t.quickLinks.triplesTitle}
-                  </span>
-                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-transform" />
-                </div>
-                <p className="text-xs text-slate-500">
-                  {t.quickLinks.triplesDesc}
-                </p>
-              </button>
+          {/* Quick Link Cards to other modules */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <button
+              onClick={() => {
+                setActiveTab('triples');
+                window.scrollTo({ top: 200, behavior: 'smooth' });
+              }}
+              className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-400 hover:shadow-sm text-left transition-all cursor-pointer group"
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-bold text-slate-800 text-sm group-hover:text-blue-600">
+                  {t.quickLinks.triplesTitle}
+                </span>
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-transform" />
+              </div>
+              <p className="text-xs text-slate-500">
+                {t.quickLinks.triplesDesc}
+              </p>
+            </button>
 
-              <button
-                onClick={() => {
-                  setActiveTab('special');
-                  window.scrollTo({ top: 200, behavior: 'smooth' });
-                }}
-                className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-400 hover:shadow-sm text-left transition-all cursor-pointer group"
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-bold text-slate-800 text-sm group-hover:text-blue-600">
-                    {t.quickLinks.specialTitle}
-                  </span>
-                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-transform" />
-                </div>
-                <p className="text-xs text-slate-500">
-                  {t.quickLinks.specialDesc}
-                </p>
-              </button>
+            <button
+              onClick={() => {
+                setActiveTab('special');
+                window.scrollTo({ top: 200, behavior: 'smooth' });
+              }}
+              className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-400 hover:shadow-sm text-left transition-all cursor-pointer group"
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-bold text-slate-800 text-sm group-hover:text-blue-600">
+                  {t.quickLinks.specialTitle}
+                </span>
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-transform" />
+              </div>
+              <p className="text-xs text-slate-500">
+                {t.quickLinks.specialDesc}
+              </p>
+            </button>
 
-              <button
-                onClick={() => {
-                  setActiveTab('guide');
-                  window.scrollTo({ top: 200, behavior: 'smooth' });
-                }}
-                className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-400 hover:shadow-sm text-left transition-all cursor-pointer group"
-              >
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-bold text-slate-800 text-sm group-hover:text-blue-600">
-                    {t.quickLinks.guideTitle}
-                  </span>
-                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-transform" />
-                </div>
-                <p className="text-xs text-slate-500">
-                  {t.quickLinks.guideDesc}
-                </p>
-              </button>
-            </div>
-
-            {/* Embedded SEO Content & Guide right below calculator */}
-            <SeoContent lang={lang} />
+            <button
+              onClick={() => {
+                setActiveTab('guide');
+                window.scrollTo({ top: 200, behavior: 'smooth' });
+              }}
+              className="p-4 rounded-2xl bg-white border border-slate-200 hover:border-blue-400 hover:shadow-sm text-left transition-all cursor-pointer group"
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="font-bold text-slate-800 text-sm group-hover:text-blue-600">
+                  {t.quickLinks.guideTitle}
+                </span>
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-transform" />
+              </div>
+              <p className="text-xs text-slate-500">
+                {t.quickLinks.guideDesc}
+              </p>
+            </button>
           </div>
-        )}
+
+          {/* Embedded SEO Content & Guide right below calculator */}
+          <SeoContent lang={lang} />
+        </div>
 
         {activeTab === 'triples' && (
           <div className="space-y-8">
